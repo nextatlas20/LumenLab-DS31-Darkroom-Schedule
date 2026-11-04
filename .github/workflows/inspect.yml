@@ -1,0 +1,21 @@
+name: Inspect Fork Parent
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query repository metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for r in zz-print444-fork-hold-1 Riverton-TL365-Custody Dawnline-Print-Room-444 My-Homepage; do
+            echo "=== $r ==="
+            curl -sS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/nextatlas20/$r" | jq '{name, fork, default_branch, parent: .parent.full_name, source: .source.full_name, size}'
+          done
