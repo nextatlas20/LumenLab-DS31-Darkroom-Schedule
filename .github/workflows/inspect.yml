@@ -10,12 +10,23 @@ jobs:
   inspect:
     runs-on: ubuntu-latest
     steps:
-      - name: Query repository metadata
+      - name: List direct forks of academicpages
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          for r in zz-print444-fork-hold-1 Riverton-TL365-Custody Dawnline-Print-Room-444 My-Homepage; do
-            echo "=== $r ==="
+          set -euo pipefail
+          for page in 1 2 3 4 5 6 7 8 9 10; do
             curl -sS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/nextatlas20/$r" | jq '{name, fork, default_branch, parent: .parent.full_name, source: .source.full_name, size}'
-          done
+              "https://api.github.com/users/nextatlas20/repos?type=forks&per_page=100&page=$page" > /tmp/repos.json
+            count=$(jq 'length' /tmp/repos.json)
+            if [ "$count" -eq 0 ]; then break; fi
+            jq -r '.[].full_name' /tmp/repos.json
+          done > /tmp/all_forks.txt
+          echo "Fork count: $(wc -l < /tmp/all_forks.txt)"
+          while IFS= read -r repo; do
+            parent=$(curl -sS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$repo" | jq -r '.parent.full_name // empty')
+            if [ "$parent" = "academicpages/academicpages.github.io" ]; then
+              echo "DIRECT: $repo"
+            fi
+          done < /tmp/all_forks.txt
