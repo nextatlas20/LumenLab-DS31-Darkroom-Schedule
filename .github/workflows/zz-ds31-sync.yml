@@ -22,6 +22,7 @@ jobs:
           git remote add upstream https://github.com/academicpages/academicpages.github.io.git || true
           git fetch --no-tags upstream master
           git checkout -B master upstream/master
+          git checkout origin/master -- .github
           python3 <<'PY'
           from pathlib import Path
           import re
@@ -74,6 +75,6 @@ jobs:
           ]
           write_exact("downloads/ds-31-pickup-board.tsv", "\t".join(tsv_header) + "\n" + "\n".join("\t".join(row) for row in tsv_rows) + "\n")
           PY
-          git add _config.yml _pages/about.md _data/ds-31-darkroom-schedule.json downloads/ds-31-pickup-board.tsv
+          git add -A
           git commit -m "Publish DS-31 darkroom schedule"
           git push --force origin master
