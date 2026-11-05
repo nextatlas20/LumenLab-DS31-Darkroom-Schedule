@@ -1,0 +1,79 @@
+name: DS-31 Sync
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Rebuild from upstream baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Lumen Lab Publisher"
+          git config user.email "pickup@lumenlab.example"
+          git remote add upstream https://github.com/academicpages/academicpages.github.io.git || true
+          git fetch --no-tags upstream master
+          git checkout -B master upstream/master
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          def write_exact(path, content):
+              with open(path, "w", encoding="utf-8", newline="") as handle:
+                  handle.write(content)
+
+          config_path = Path("_config.yml")
+          config_lines = config_path.read_text(encoding="utf-8").splitlines(keepends=True)
+          updated = []
+          for line in config_lines:
+              if re.match(r"^title\s*:", line):
+                  updated.append("title: Lumen Lab DS-31 Darkroom Schedule\n")
+              elif re.match(r"^description\s*:", line):
+                  updated.append("description: Approved print jobs assigned by earliest station finish\n")
+                  updated.append("email: pickup@lumenlab.example\n")
+              else:
+                  updated.append(line)
+          write_exact("_config.yml", "".join(updated))
+
+          write_exact("_pages/about.md", """---
+          title: "Lumen Lab DS-31 Darkroom Schedule"
+          permalink: /
+          layout: single
+          ---
+
+          ## Darkroom shift
+          Lumen Community Photo Lab is publishing the approved DS-31 pickup schedule.
+
+          ## Assignment method
+          Scheduling rule: jobs are queued by priority and due time, then assigned by earliest compatible finish.
+
+          ## Pickup desk
+          Pickup desk: pickup@lumenlab.example
+          """)
+
+          write_exact("_data/ds-31-darkroom-schedule.json", """{"shift_id":"DS-31","shift_name":"Lumen Lab Saturday Print Pickup","published_at":"2027-03-06T07:30:00Z","shift_start":"2027-03-06T08:00:00Z","shift_end":"2027-03-06T14:00:00Z","station_order":["north","south"],"priority_order":["rush","standard"],"mode_order":["colour","monochrome"],"job_occurrence_count":10,"accepted_count":6,"rejected_count":4,"on_time_count":6,"total_scheduled_minutes":255,"job_audit":[{"job_occurrence":1,"job_id":"J1","status":"accepted","reason":"accepted","schedule_position":5},{"job_occurrence":2,"job_id":"J2","status":"accepted","reason":"accepted","schedule_position":2},{"job_occurrence":3,"job_id":"J3","status":"accepted","reason":"accepted","schedule_position":1},{"job_occurrence":4,"job_id":"J4","status":"accepted","reason":"accepted","schedule_position":6},{"job_occurrence":5,"job_id":"J5","status":"accepted","reason":"accepted","schedule_position":3},{"job_occurrence":6,"job_id":"J6","status":"accepted","reason":"accepted","schedule_position":4},{"job_occurrence":7,"job_id":"OLD","status":"rejected","reason":"wrong-shift","schedule_position":null},{"job_occurrence":8,"job_id":"HIDDEN","status":"rejected","reason":"not-public","schedule_position":null},{"job_occurrence":9,"job_id":"PENDING","status":"rejected","reason":"not-approved","schedule_position":null},{"job_occurrence":10,"job_id":"BROKEN","status":"rejected","reason":"invalid-job","schedule_position":null}],"station_summary":[{"station_code":"north","station_id":"ST-N","display_name":"North Bench","opens_at":"2027-03-06T08:00:00Z","accepted_count":4,"scheduled_minutes":180},{"station_code":"south","station_id":"ST-S","display_name":"South Bench","opens_at":"2027-03-06T08:15:00Z","accepted_count":2,"scheduled_minutes":75}],"schedule":[{"schedule_position":1,"job_id":"J3","station_code":"north","station_name":"North Bench","priority":"rush","mode":"colour","client_label":"Moss Theatre","job_title":"Costume stills","due_at":"2027-03-06T10:00:00Z","start_at":"2027-03-06T08:00:00Z","finish_at":"2027-03-06T09:00:00Z","duration_minutes":60,"on_time":true},{"schedule_position":2,"job_id":"J2","station_code":"south","station_name":"South Bench","priority":"rush","mode":"monochrome","client_label":"Civic History Room","job_title":"Market archive proofs","due_at":"2027-03-06T10:00:00Z","start_at":"2027-03-06T08:15:00Z","finish_at":"2027-03-06T09:00:00Z","duration_minutes":45,"on_time":true},{"schedule_position":3,"job_id":"J5","station_code":"north","station_name":"North Bench","priority":"rush","mode":"colour","client_label":"Juniper Press","job_title":"Cover test strips","due_at":"2027-03-06T11:00:00Z","start_at":"2027-03-06T09:00:00Z","finish_at":"2027-03-06T09:30:00Z","duration_minutes":30,"on_time":true},{"schedule_position":4,"job_id":"J6","station_code":"south","station_name":"South Bench","priority":"standard","mode":"monochrome","client_label":"Canal Walk Society","job_title":"Footbridge enlargements","due_at":"2027-03-06T12:00:00Z","start_at":"2027-03-06T09:00:00Z","finish_at":"2027-03-06T09:30:00Z","duration_minutes":30,"on_time":true},{"schedule_position":5,"job_id":"J1","station_code":"north","station_name":"North Bench","priority":"standard","mode":"colour","client_label":"Orchid Club","job_title":"Spring contact sheet","due_at":"2027-03-06T13:00:00Z","start_at":"2027-03-06T09:30:00Z","finish_at":"2027-03-06T10:30:00Z","duration_minutes":60,"on_time":true},{"schedule_position":6,"job_id":"J4","station_code":"north","station_name":"North Bench","priority":"standard","mode":"colour","client_label":"West Quay School","job_title":"Pinhole selections","due_at":"2027-03-06T13:30:00Z","start_at":"2027-03-06T10:30:00Z","finish_at":"2027-03-06T11:00:00Z","duration_minutes":30,"on_time":true}]}
+          """)
+
+          Path("downloads").mkdir(parents=True, exist_ok=True)
+          tsv_header = ["schedule_position", "job_id", "station_code", "station_name", "priority", "mode", "client_label", "job_title", "due_at", "start_at", "finish_at", "on_time"]
+          tsv_rows = [
+              ["1", "J3", "north", "North Bench", "rush", "colour", "Moss Theatre", "Costume stills", "2027-03-06T10:00:00Z", "2027-03-06T08:00:00Z", "2027-03-06T09:00:00Z", "true"],
+              ["2", "J2", "south", "South Bench", "rush", "monochrome", "Civic History Room", "Market archive proofs", "2027-03-06T10:00:00Z", "2027-03-06T08:15:00Z", "2027-03-06T09:00:00Z", "true"],
+              ["3", "J5", "north", "North Bench", "rush", "colour", "Juniper Press", "Cover test strips", "2027-03-06T11:00:00Z", "2027-03-06T09:00:00Z", "2027-03-06T09:30:00Z", "true"],
+              ["4", "J6", "south", "South Bench", "standard", "monochrome", "Canal Walk Society", "Footbridge enlargements", "2027-03-06T12:00:00Z", "2027-03-06T09:00:00Z", "2027-03-06T09:30:00Z", "true"],
+              ["5", "J1", "north", "North Bench", "standard", "colour", "Orchid Club", "Spring contact sheet", "2027-03-06T13:00:00Z", "2027-03-06T09:30:00Z", "2027-03-06T10:30:00Z", "true"],
+              ["6", "J4", "north", "North Bench", "standard", "colour", "West Quay School", "Pinhole selections", "2027-03-06T13:30:00Z", "2027-03-06T10:30:00Z", "2027-03-06T11:00:00Z", "true"],
+          ]
+          write_exact("downloads/ds-31-pickup-board.tsv", "\t".join(tsv_header) + "\n" + "\n".join("\t".join(row) for row in tsv_rows) + "\n")
+          PY
+          git add _config.yml _pages/about.md _data/ds-31-darkroom-schedule.json downloads/ds-31-pickup-board.tsv
+          git commit -m "Publish DS-31 darkroom schedule"
+          git push --force origin master
